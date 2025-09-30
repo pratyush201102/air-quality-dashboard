@@ -1,3 +1,42 @@
+# Air Quality Dashboard
+
+This repository contains a React + TypeScript front-end and a small Node.js backend used for local development of an air-quality dashboard. The app shows AQI cards, charts, and a predictive placeholder that uses a deterministic mock API.
+
+Quick start (development)
+
+1. Install dependencies for frontend and backend:
+
+```bash
+# from repo root
+npm install
+cd backend
+npm install
+cd ..
+```
+
+2. Run backend (defaults to port 3000):
+
+```bash
+cd backend
+node server.js
+```
+
+3. Run frontend dev server (uses react-scripts wrapper in scripts/):
+
+```bash
+npm start
+# then open the printed Local URL (often http://localhost:3000 or 3001/3002 during dev)
+```
+
+Notes
+- This repo was cleaned to remove committed dependency trees (backend/node_modules) — run fresh installs locally.
+- The predictive endpoint `/api/predict/:city` is a deterministic mock for UI development.
+
+Contributing
+- Open issues or PRs for UX improvements, tests, or deployment pipelines.
+
+License
+- Add a license if you want to publish this publicly.
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
