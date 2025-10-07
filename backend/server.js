@@ -8,7 +8,7 @@ const PORT = 3000;
 // AQICN API Key
 const AQICN_KEY = "fd43f848b79493d8249c91a90fae9833c56c41c3";
 
-app.use(cors());
+app.use(cors()); 
 
 // Root route
 app.get("/", (req, res) => {
