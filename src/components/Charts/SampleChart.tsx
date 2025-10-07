@@ -39,11 +39,17 @@ export default function SampleChart({
     : data;
   const title = pollutant === 'aqi' ? 'AQI Comparison' : `${pollutant.toUpperCase()} Comparison`;
 
-  // normalize into uniform shape for the chart
+  // normalize into uniform shape for the chart and derive a short display label
   const mapped = filtered.map((d) => {
     const val = pollutant === 'aqi' ? d.aqi : (d as any)[pollutant];
+    // find a matching slug from selectedCities so we can show a concise label (e.g., 'Delhi')
+    const matchedSlug = selectedCities && selectedCities.length > 0
+      ? selectedCities.find((slug) => slugify(d.city).includes(slug))
+      : undefined;
+    const displayName = (matchedSlug || slugify(d.city)).split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
     return {
-      city: d.city,
+      city: d.city, // full city name (for tooltips)
+      label: displayName, // short display name for X axis
       value: val === null || val === undefined ? null : Number(val),
       raw: d,
     };
@@ -57,9 +63,9 @@ export default function SampleChart({
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={mapped}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="city" />
+          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
           <YAxis />
-          <Tooltip />
+          <Tooltip labelFormatter={(label) => label} />
           <Legend />
           <Bar
             dataKey="value"
