@@ -67,6 +67,8 @@ export default function SampleChart({
           <YAxis />
           <Tooltip labelFormatter={(label) => label} />
           <Legend />
+          {/* Spacer below the legend: use CSS height instead of multiple <br/> */}
+          <div style={{ height: 56 }} />
           <Bar
             dataKey="value"
             name={pollutant === 'aqi' ? 'AQI' : pollutant.toUpperCase()}

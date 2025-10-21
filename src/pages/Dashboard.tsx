@@ -4,7 +4,6 @@ import { fetchLocationAqi, AirQualityData } from "../utils/api";
 import AqiCard from "../components/AqiCard";
 import SampleChart from "../components/Charts/SampleChart";
 import ForecastChart from "../components/Charts/ForecastChart";
-import PredictivePlaceholder from "../components/PredictivePlaceholder";
 import AqiLegend from "../components/AqiLegend";
 import CitySelector from "../components/CitySelector";
 import { slugify } from "../utils/string";
@@ -81,7 +80,6 @@ export default function Dashboard() {
 
         <SampleChart data={data} pollutant={selectedPollutant} selectedCities={selectedCities} />
   <ForecastChart selectedCities={selectedCities} allCities={cities} />
-        <PredictivePlaceholder />
       </div>
     </div>
   );

@@ -1,0 +1,346 @@
+🚀 Server running on http://localhost:3000
+Received request for /api/mlpredict /api/mlpredict/Los-Angeles query= [Object: null prototype] { horizon: '4' } PID= 89325
+mlpredict: appended currentObserved to training rows for Los-Angeles
+mlpredict: attempting local /api/aqi override for Los-Angeles
+/api/aqi called for Los-Angeles
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+mlpredict: local /api/aqi response: {"aqi":79}
+mlpredict: overridden forecast[0] to 79
+mlpredict: applied blending for Los-Angeles blendSteps= 3 observed= 79
+/api/aqi called for Los Angeles
+/api/aqi called for Beijing
+/api/aqi called for Delhi
+/api/aqi called for London
+Writing current cache for london
+Wrote current cache for london
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+/api/aqi called for London
+/api/aqi called for Los Angeles
+Writing current cache for beijing
+Wrote current cache for beijing
+/api/aqi called for Beijing
+Writing current cache for delhi
+Wrote current cache for delhi
+/api/aqi called for Delhi
+Writing current cache for london
+Wrote current cache for london
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+/api/aqi called for Los Angeles
+Writing current cache for beijing
+Wrote current cache for beijing
+/api/aqi called for Beijing
+Writing current cache for delhi
+Wrote current cache for delhi
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+/api/aqi called for Los Angeles
+Received request for /api/mlpredict /api/mlpredict/Los%20Angeles query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Los Angeles
+mlpredict: attempting local /api/aqi override for Los Angeles
+Writing current cache for beijing
+Wrote current cache for beijing
+/api/aqi called for Beijing
+Received request for /api/mlpredict /api/mlpredict/Beijing query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Beijing
+mlpredict: attempting local /api/aqi override for Beijing
+/api/aqi called for Los Angeles
+/api/aqi called for Beijing
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+Writing current cache for beijing
+Wrote current cache for beijing
+Writing current cache for beijing
+Wrote current cache for beijing
+mlpredict: local /api/aqi response: {"aqi":70}
+mlpredict: overridden forecast[0] to 70
+mlpredict: applied blending for Beijing blendSteps= 3 observed= 70
+Received request for /api/mlpredict /api/mlpredict/Beijing query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Beijing
+mlpredict: attempting local /api/aqi override for Beijing
+/api/aqi called for Beijing
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+mlpredict: local /api/aqi response: {"aqi":79}
+mlpredict: overridden forecast[0] to 79
+mlpredict: applied blending for Los Angeles blendSteps= 3 observed= 79
+Received request for /api/mlpredict /api/mlpredict/Los%20Angeles query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Los Angeles
+mlpredict: attempting local /api/aqi override for Los Angeles
+/api/aqi called for Los Angeles
+Writing current cache for beijing
+Wrote current cache for beijing
+mlpredict: local /api/aqi response: {"aqi":70}
+mlpredict: overridden forecast[0] to 70
+mlpredict: applied blending for Beijing blendSteps= 3 observed= 70
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+mlpredict: local /api/aqi response: {"aqi":79}
+mlpredict: overridden forecast[0] to 79
+mlpredict: applied blending for Los Angeles blendSteps= 3 observed= 79
+/api/aqi called for Los Angeles
+/api/aqi called for Beijing
+/api/aqi called for Delhi
+Writing current cache for delhi
+Wrote current cache for delhi
+Writing current cache for beijing
+Wrote current cache for beijing
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+Received request for /api/mlpredict /api/mlpredict/Beijing query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Beijing
+mlpredict: attempting local /api/aqi override for Beijing
+Received request for /api/mlpredict /api/mlpredict/Delhi query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Delhi
+mlpredict: attempting local /api/aqi override for Delhi
+Received request for /api/mlpredict /api/mlpredict/Los%20Angeles query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Los Angeles
+mlpredict: attempting local /api/aqi override for Los Angeles
+/api/aqi called for Beijing
+/api/aqi called for Delhi
+/api/aqi called for Los Angeles
+/api/aqi called for Los Angeles
+/api/aqi called for Beijing
+/api/aqi called for Delhi
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+Writing current cache for delhi
+Wrote current cache for delhi
+Writing current cache for beijing
+Wrote current cache for beijing
+mlpredict: local /api/aqi response: {"aqi":79}
+mlpredict: overridden forecast[0] to 79
+mlpredict: applied blending for Los Angeles blendSteps= 3 observed= 79
+mlpredict: local /api/aqi response: {"aqi":246}
+mlpredict: overridden forecast[0] to 246
+mlpredict: applied blending for Delhi blendSteps= 3 observed= 246
+mlpredict: local /api/aqi response: {"aqi":70}
+mlpredict: overridden forecast[0] to 70
+mlpredict: applied blending for Beijing blendSteps= 3 observed= 70
+/api/aqi called for London
+Writing current cache for london
+Wrote current cache for london
+Received request for /api/mlpredict /api/mlpredict/London query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for London
+mlpredict: attempting local /api/aqi override for London
+/api/aqi called for London
+Writing current cache for london
+Wrote current cache for london
+mlpredict: local /api/aqi response: {"aqi":38}
+mlpredict: overridden forecast[0] to 38
+mlpredict: applied blending for London blendSteps= 3 observed= 38
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+Received request for /api/mlpredict /api/mlpredict/Los%20Angeles query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Los Angeles
+mlpredict: attempting local /api/aqi override for Los Angeles
+Writing current cache for beijing
+Wrote current cache for beijing
+/api/aqi called for Los Angeles
+Writing current cache for delhi
+Wrote current cache for delhi
+Received request for /api/mlpredict /api/mlpredict/Beijing query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Beijing
+mlpredict: attempting local /api/aqi override for Beijing
+Received request for /api/mlpredict /api/mlpredict/Delhi query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Delhi
+mlpredict: attempting local /api/aqi override for Delhi
+/api/aqi called for Beijing
+/api/aqi called for Delhi
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+mlpredict: local /api/aqi response: {"aqi":79}
+mlpredict: overridden forecast[0] to 79
+mlpredict: applied blending for Los Angeles blendSteps= 3 observed= 79
+Writing current cache for delhi
+Wrote current cache for delhi
+mlpredict: local /api/aqi response: {"aqi":246}
+mlpredict: overridden forecast[0] to 246
+mlpredict: applied blending for Delhi blendSteps= 3 observed= 246
+Writing current cache for beijing
+Wrote current cache for beijing
+mlpredict: local /api/aqi response: {"aqi":70}
+mlpredict: overridden forecast[0] to 70
+mlpredict: applied blending for Beijing blendSteps= 3 observed= 70
+/api/aqi called for Beijing
+/api/aqi called for Delhi
+/api/aqi called for Los Angeles
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+Writing current cache for delhi
+Wrote current cache for delhi
+Writing current cache for beijing
+Wrote current cache for beijing
+/api/aqi called for Los Angeles
+/api/aqi called for Delhi
+Received request for /api/mlpredict /api/mlpredict/Delhi query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Delhi
+mlpredict: attempting local /api/aqi override for Delhi
+Received request for /api/mlpredict /api/mlpredict/Los%20Angeles query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Los Angeles
+mlpredict: attempting local /api/aqi override for Los Angeles
+Received request for /api/mlpredict /api/mlpredict/Beijing query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Beijing
+mlpredict: attempting local /api/aqi override for Beijing
+/api/aqi called for Delhi
+/api/aqi called for Los Angeles
+/api/aqi called for Beijing
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+Writing current cache for delhi
+Wrote current cache for delhi
+Writing current cache for delhi
+Wrote current cache for delhi
+/api/aqi called for Delhi
+mlpredict: local /api/aqi response: {"aqi":246}
+mlpredict: overridden forecast[0] to 246
+mlpredict: applied blending for Delhi blendSteps= 3 observed= 246
+Received request for /api/mlpredict /api/mlpredict/Delhi query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Delhi
+mlpredict: attempting local /api/aqi override for Delhi
+/api/aqi called for Delhi
+Writing current cache for delhi
+Wrote current cache for delhi
+Writing current cache for delhi
+Wrote current cache for delhi
+mlpredict: local /api/aqi response: {"aqi":246}
+mlpredict: overridden forecast[0] to 246
+mlpredict: applied blending for Delhi blendSteps= 3 observed= 246
+Received request for /api/mlpredict /api/mlpredict/Delhi query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Delhi
+mlpredict: attempting local /api/aqi override for Delhi
+/api/aqi called for Delhi
+Writing current cache for beijing
+Wrote current cache for beijing
+Writing current cache for delhi
+Wrote current cache for delhi
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+mlpredict: local /api/aqi response: {"aqi":70}
+mlpredict: overridden forecast[0] to 70
+mlpredict: applied blending for Beijing blendSteps= 3 observed= 70
+mlpredict: local /api/aqi response: {"aqi":246}
+mlpredict: overridden forecast[0] to 246
+mlpredict: applied blending for Delhi blendSteps= 3 observed= 246
+mlpredict: local /api/aqi response: {"aqi":79}
+mlpredict: overridden forecast[0] to 79
+mlpredict: applied blending for Los Angeles blendSteps= 3 observed= 79
+Received request for /api/mlpredict /api/mlpredict/Los%20Angeles query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Los Angeles
+mlpredict: attempting local /api/aqi override for Los Angeles
+/api/aqi called for Los Angeles
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+mlpredict: local /api/aqi response: {"aqi":79}
+mlpredict: overridden forecast[0] to 79
+mlpredict: applied blending for Los Angeles blendSteps= 3 observed= 79
+/api/aqi called for Delhi
+/api/aqi called for Beijing
+Writing current cache for beijing
+Wrote current cache for beijing
+Writing current cache for delhi
+Wrote current cache for delhi
+Received request for /api/mlpredict /api/mlpredict/Beijing query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Beijing
+mlpredict: attempting local /api/aqi override for Beijing
+Received request for /api/mlpredict /api/mlpredict/Delhi query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Delhi
+mlpredict: attempting local /api/aqi override for Delhi
+/api/aqi called for Beijing
+/api/aqi called for Delhi
+/api/aqi called for Delhi
+/api/aqi called for Beijing
+/api/aqi called for Los Angeles
+Writing current cache for delhi
+Wrote current cache for delhi
+Writing current cache for beijing
+Wrote current cache for beijing
+mlpredict: local /api/aqi response: {"aqi":246}
+mlpredict: overridden forecast[0] to 246
+mlpredict: applied blending for Delhi blendSteps= 3 observed= 246
+mlpredict: local /api/aqi response: {"aqi":70}
+mlpredict: overridden forecast[0] to 70
+mlpredict: applied blending for Beijing blendSteps= 3 observed= 70
+Writing current cache for beijing
+Wrote current cache for beijing
+Writing current cache for delhi
+Wrote current cache for delhi
+Received request for /api/mlpredict /api/mlpredict/Beijing query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Beijing
+mlpredict: attempting local /api/aqi override for Beijing
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+/api/aqi called for Beijing
+Received request for /api/mlpredict /api/mlpredict/Delhi query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Delhi
+mlpredict: attempting local /api/aqi override for Delhi
+Received request for /api/mlpredict /api/mlpredict/Los%20Angeles query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Los Angeles
+mlpredict: attempting local /api/aqi override for Los Angeles
+/api/aqi called for Delhi
+/api/aqi called for Los Angeles
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+Writing current cache for beijing
+Wrote current cache for beijing
+mlpredict: local /api/aqi response: {"aqi":79}
+mlpredict: overridden forecast[0] to 79
+mlpredict: applied blending for Los Angeles blendSteps= 3 observed= 79
+mlpredict: local /api/aqi response: {"aqi":70}
+mlpredict: overridden forecast[0] to 70
+mlpredict: applied blending for Beijing blendSteps= 3 observed= 70
+Writing current cache for delhi
+Wrote current cache for delhi
+mlpredict: local /api/aqi response: {"aqi":246}
+mlpredict: overridden forecast[0] to 246
+mlpredict: applied blending for Delhi blendSteps= 3 observed= 246
+/api/aqi called for Delhi
+/api/aqi called for Beijing
+/api/aqi called for Los Angeles
+/api/aqi called for London
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+Writing current cache for delhi
+Wrote current cache for delhi
+Received request for /api/mlpredict /api/mlpredict/Los%20Angeles query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Los Angeles
+mlpredict: attempting local /api/aqi override for Los Angeles
+Received request for /api/mlpredict /api/mlpredict/Delhi query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Delhi
+mlpredict: attempting local /api/aqi override for Delhi
+/api/aqi called for Los Angeles
+Writing current cache for beijing
+Wrote current cache for beijing
+Writing current cache for london
+Wrote current cache for london
+/api/aqi called for Delhi
+Received request for /api/mlpredict /api/mlpredict/Beijing query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for Beijing
+mlpredict: attempting local /api/aqi override for Beijing
+Received request for /api/mlpredict /api/mlpredict/London query= [Object: null prototype] {} PID= 89325
+mlpredict: appended currentObserved to training rows for London
+mlpredict: attempting local /api/aqi override for London
+/api/aqi called for Beijing
+/api/aqi called for London
+Writing current cache for los-angeles
+Wrote current cache for los-angeles
+mlpredict: local /api/aqi response: {"aqi":79}
+mlpredict: overridden forecast[0] to 79
+mlpredict: applied blending for Los Angeles blendSteps= 3 observed= 79
+Writing current cache for london
+Wrote current cache for london
+Writing current cache for delhi
+Wrote current cache for delhi
+mlpredict: local /api/aqi response: {"aqi":38}
+mlpredict: overridden forecast[0] to 38
+mlpredict: applied blending for London blendSteps= 3 observed= 38
+mlpredict: local /api/aqi response: {"aqi":246}
+mlpredict: overridden forecast[0] to 246
+mlpredict: applied blending for Delhi blendSteps= 3 observed= 246
+Writing current cache for beijing
+Wrote current cache for beijing
+mlpredict: local /api/aqi response: {"aqi":70}
+mlpredict: overridden forecast[0] to 70
+mlpredict: applied blending for Beijing blendSteps= 3 observed= 70
