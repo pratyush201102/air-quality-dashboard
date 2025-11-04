@@ -25,6 +25,21 @@ jobs:
       run: |
         npm ci
 
+    - name: Start backend (for integration tests)
+      run: |
+        npm run start-backend &
+        echo "Waiting for backend to be ready..."
+        for i in {1..30}; do
+          if curl -sSf http://localhost:3000/ >/dev/null; then
+            echo "backend ready"; break
+          fi
+          sleep 1
+        done
+
+    - name: Run integration tests
+      run: |
+        npm run test:integration
+
     - name: Build
       run: |
         npm run build

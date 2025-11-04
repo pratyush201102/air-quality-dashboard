@@ -26,8 +26,10 @@
   },
   "scripts": {
     "start": "node scripts/start.js",
+    "start-backend": "node backend/server.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:integration": "node tests/integration/mlpredict-integration.js",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
