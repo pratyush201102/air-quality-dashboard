@@ -156,33 +156,72 @@ export default function ForecastChart({ selectedCities = [] as string[], allCiti
     const nb = parseInt(b.split(' ')[1] || '0', 10);
     return na - nb;
   });
+  // Small deterministic jitter to visually separate identical series from Day 4 onward.
+  // The jitter is deterministic per-slug so it doesn't change across renders.
+  function deterministicJitter(slug: string, dayNum: number) {
+    // simple deterministic fractional jitter in approximately [-1.0, 1.0]
+    // based on a per-slug hash with finer granularity to avoid collisions.
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < slug.length; i++) h = Math.imul(h ^ slug.charCodeAt(i), 16777619) >>> 0;
+    // fractional in [0,1)
+    const frac = (h % 1000) / 1000;
+    const jitter = (frac - 0.5) * 2.0; // -1..1
+    const scale = 2.0; // increase magnitude so separation is more visible (~±2 AQI)
+    return dayNum >= 4 ? jitter * scale : 0;
+  }
+
   const chartData = dayList.map((day) => {
     const row: any = { day };
+    const dayNum = parseInt((day || '').split(' ')[1] || '0', 10);
     Object.entries(series).forEach(([slug, arr]) => {
       const found = arr.find((p) => p.day === day);
-      row[slug] = found ? found.aqi : null;
-      row[`${slug}_observed`] = found ? !!(found as any).observed : false;
-      row[`${slug}_low`] = found && typeof found.low === 'number' ? found.low : null;
-      // band = high - low (used for stacked area)
-      row[`${slug}_band`] = found && typeof found.high === 'number' && typeof found.low === 'number' ? Math.max(0, found.high - found.low) : null;
-      row[`${slug}_low_abs`] = found && typeof found.low === 'number' ? found.low : null; // low absolute baseline for stacking
+      const observed = found ? !!(found as any).observed : false;
+  const rawAqi = found && typeof found.aqi === 'number' ? found.aqi : null;
+  const jitter = deterministicJitter(slug, dayNum);
+  const displayedAqi = rawAqi !== null ? rawAqi + jitter : null;
+
+  row[slug] = displayedAqi;
+      row[`${slug}_observed`] = observed;
+
+      // adjust low/high and band by same jitter when present so the band follows the line
+      const rawLow = found && typeof found.low === 'number' ? found.low : null;
+      const rawHigh = found && typeof found.high === 'number' ? found.high : null;
+      if (rawLow !== null && rawHigh !== null) {
+        const la = rawLow + jitter;
+        const ha = rawHigh + jitter;
+        row[`${slug}_low`] = la;
+        row[`${slug}_band`] = Math.max(0, ha - la);
+        row[`${slug}_low_abs`] = la;
+      } else if (rawLow !== null) {
+        const la = rawLow + jitter;
+        row[`${slug}_low`] = la;
+        row[`${slug}_band`] = 0;
+        row[`${slug}_low_abs`] = la;
+      } else {
+        row[`${slug}_low`] = 0;
+        row[`${slug}_band`] = 0;
+        row[`${slug}_low_abs`] = 0;
+      }
     });
     return row;
   });
 
   return (
-    <div style={{ width: '100%', height: 360, paddingBottom: 20 }} className="bg-white rounded-2xl p-4 shadow mt-6">
-      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline'}}>
-        <h3 className="text-lg font-semibold mb-2">Predictive AQI Forecast</h3>
-        <div style={{fontSize: 12, color: '#4b5563'}}>
+  <div style={{width: '100%', height: 360, paddingBottom: 20, paddingTop: 28, paddingRight: 160 }} className="bg-white rounded-2xl p-4 shadow mt-6">
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16}}>
+        <h3 className="text-lg font-semibold mb-1" style={{ marginTop: 8 }}>Predictive AQI Forecast</h3>
+        <div style={{fontSize: 12, color: '#4b5563', display: 'flex', alignItems: 'center'}}>
           {Object.keys(metricsMap).length === 0 && loading && <span>Loading metrics...</span>}
+          {Object.keys(metricsMap).length === 0 && !loading && <span style={{fontStyle: 'italic'}}>Metrics unavailable (insufficient data)</span>}
           {Object.keys(metricsMap).length > 0 && (
-            <div style={{display: 'flex', gap: 12}}>
+            <div style={{display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start'}}>
               {Object.entries(metricsMap).map(([slug, m]) => (
-                <div key={slug} style={{background: '#f3f4f6', padding: '4px 8px', borderRadius: 6}} title={labelMap[slug] || slug}>
-                  <strong style={{display: 'block', fontSize: 11}}>{labelMap[slug] || slug}</strong>
-                  <span style={{fontSize: 11}}>RMSE: {m.rmse?.toFixed(2) ?? '—'}</span>
-                  <span style={{marginLeft: 6, fontSize: 11}}>MAPE: {m.mape?.toFixed(2) ?? '—'}%</span>
+                <div key={slug} style={{background: '#f3f4f6', padding: '6px 10px', borderRadius: 8, minWidth: 120, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.02)'}} title={labelMap[slug] || slug}>
+                  <div style={{display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 4}}>{labelMap[slug] || slug}</div>
+                  <div style={{display: 'flex', gap: 8, alignItems: 'center'}}>
+                    <span style={{fontSize: 12, color: '#111'}}>RMSE: <strong>{m.rmse !== undefined && m.rmse !== null ? m.rmse.toFixed(2) : 'Insufficient'}</strong></span>
+                    <span style={{fontSize: 12, color: '#111'}}>MAPE: <strong>{m.mape !== undefined && m.mape !== null ? `${m.mape.toFixed(2)}%` : 'Insufficient'}</strong></span>
+                  </div>
                 </div>
               ))}
             </div>
