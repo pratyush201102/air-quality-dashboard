@@ -197,9 +197,12 @@ async function fetchCityHistory(city, days = 7) {
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
   const days = 7;
+  const summary = { cities: {}, total_real_hours: 0, total_synth_hours: 0 };
   for (const c of cities) {
     const data = await fetchCityHistory(c, days);
     let finalData = data;
+    let real_hours = 0;
+    let synth_hours = 0;
     if (!finalData) {
       console.warn('No data for', c.name, '- falling back to synthetic data');
       // deterministic synthetic generator (seeded by slug)
@@ -213,12 +216,27 @@ async function fetchCityHistory(city, days = 7) {
         const temp = Math.round(15 + Math.sin(i / 24) * 8 + rand() * 4);
         const wind = Number((rand() * 6).toFixed(2));
         const humidity = Math.round(40 + rand() * 40);
-        return { ts, aqi, pm25: Math.round(aqi * 0.6 + rand() * 10), pm10: Math.round(aqi * 0.5 + rand() * 12), no2: Math.round(rand() * 40), co: Math.round(rand() * 10), temp, wind, humidity };
+        return { ts, aqi, pm25: Math.round(aqi * 0.6 + rand() * 10), pm10: Math.round(aqi * 0.5 + rand() * 12), temp, wind, humidity };
       });
+      synth_hours = finalData.length;
+    } else {
+      real_hours = finalData.length;
     }
     const filepath = path.join(outDir, `${c.slug}.json`);
     fs.writeFileSync(filepath, JSON.stringify(finalData, null, 2));
-    console.log('Wrote', filepath, 'records:', finalData.length);
+    console.log('Wrote', filepath, 'records:', finalData.length, `(real_hours=${real_hours} synth_hours=${synth_hours})`);
+    summary.cities[c.slug] = { real_hours, synth_hours };
+    summary.total_real_hours += real_hours;
+    summary.total_synth_hours += synth_hours;
+  }
+  // write a small summary to cache for monitoring
+  try {
+    const cacheDir = path.join(__dirname, '..', 'cache');
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(cacheDir, 'fetch_history_summary.json'), JSON.stringify(summary, null, 2));
+    console.log('Summary written to backend/cache/fetch_history_summary.json');
+  } catch (e) {
+    // ignore
   }
   console.log('Done.');
 })();
