@@ -10,8 +10,7 @@ const cities = [
   { name: 'London', slug: 'london', lat: 51.507351, lon: -0.127758 },
 ];
 
-// Simple AQI conversion using US EPA breakpoints for PM2.5 and PM10
-// Returns approximate AQI for given pm25 and pm10 values
+// Small AQI helpers (US EPA breakpoints)
 function aqiFromPm25(pm25) {
   if (pm25 === null || pm25 === undefined) return null;
   const bp = [
@@ -59,53 +58,149 @@ function aqiFromPollutants(pm25, pm10) {
   return Math.max(a1, a2);
 }
 
+// Fetch history per-day and merge pollutant + weather hourly arrays
 async function fetchCityHistory(city, days = 7) {
   const end = new Date();
   const start = new Date(end.getTime() - days * 24 * 3600 * 1000);
   const startDate = start.toISOString().slice(0, 10);
   const endDate = end.toISOString().slice(0, 10);
 
-  // Open-Meteo Air Quality API
-  const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&start_date=${startDate}&end_date=${endDate}&hourly=pm10,pm2_5,no2,carbon_monoxide`;
-  console.log('Fetching', city.name, url);
-  try {
-    const resp = await axios.get(url, { timeout: 20000 });
-    const payload = resp.data;
-    if (!payload || !payload.hourly) {
-      console.warn('No hourly data for', city.name);
-      return null;
-    }
-    const hourly = payload.hourly;
-    const times = hourly.time || [];
-    const pm25Arr = hourly.pm2_5 || [];
-    const pm10Arr = hourly.pm10 || [];
-    const no2Arr = hourly.no2 || [];
-    const coArr = hourly.carbon_monoxide || [];
+  // We'll fetch per-day to avoid large multi-day queries causing 400s.
+  const out = [];
+  const headers = { 'User-Agent': 'air-quality-dashboard/1.0 (+https://github.com/pratyush201102/air-quality-dashboard)' };
 
-    const out = [];
+  function dateRangeArray(startDateStr, endDateStr) {
+    const arr = [];
+    let cur = new Date(startDateStr + 'T00:00:00Z');
+    const endD = new Date(endDateStr + 'T00:00:00Z');
+    while (cur <= endD) {
+      arr.push(cur.toISOString().slice(0,10));
+      cur = new Date(cur.getTime() + 24*3600*1000);
+    }
+    return arr;
+  }
+
+  const daysList = dateRangeArray(startDate, endDate);
+  // helper to fetch with retries
+  async function fetchWithRetry(url, tries = 3, timeout = 20000) {
+    for (let attempt = 1; attempt <= tries; attempt++) {
+      try {
+        const resp = await axios.get(url, { timeout, headers });
+        return resp.data;
+      } catch (e) {
+        // On HTTP errors capture response info (status/body) on final attempt
+        if (attempt === tries) {
+          e._attempts = attempt;
+          throw e;
+        }
+        const wait = Math.pow(2, attempt) * 500;
+        await new Promise(r => setTimeout(r, wait));
+      }
+    }
+    return null;
+  }
+
+  // Try a few variants when air-quality returns 400s; log detailed failures to disk for diagnosis.
+  async function tryFetchAirForDay(city, day) {
+    // Try minimal pollutant set first (pm2_5 + pm10) — upstream error messages reference 'no2' as problematic.
+    const variants = [
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&start_date=${day}&end_date=${day}&hourly=pm10,pm2_5&timezone=UTC`,
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&start_date=${day}&end_date=${day}&hourly=pm10,pm2_5`,
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&start_date=${day}&end_date=${day}&hourly=pm10,pm2_5,no2,carbon_monoxide&timezone=UTC`,
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&start_date=${day}&end_date=${day}&hourly=pm10,pm2_5,no2,carbon_monoxide`,
+    ];
+    for (const url of variants) {
+      try {
+        const data = await fetchWithRetry(url, 3, 20000);
+        if (data) return data;
+      } catch (err) {
+        // write a compact failure log to backend/cache/fetch_history_errors.log for diagnostics
+        try {
+          const logPath = path.join(__dirname, '..', 'cache', 'fetch_history_errors.log');
+          const info = {
+            ts: new Date().toISOString(),
+            city: city.slug || city.name,
+            day,
+            url,
+            status: err && err.response && err.response.status ? err.response.status : null,
+            body: err && err.response && err.response.data ? err.response.data : (err && err.message ? err.message : String(err)),
+          };
+          fs.mkdirSync(path.join(__dirname, '..', 'cache'), { recursive: true });
+          fs.appendFileSync(logPath, JSON.stringify(info) + '\n');
+        } catch (e) {
+          // ignore logging errors
+        }
+      }
+    }
+    return null;
+  }
+
+  for (const day of daysList) {
+    const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&start_date=${day}&end_date=${day}&hourly=pm10,pm2_5,no2,carbon_monoxide&timezone=UTC`;
+    const weatherUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${city.lat}&longitude=${city.lon}&start_date=${day}&end_date=${day}&hourly=temperature_2m,windspeed_10m,relativehumidity_2m&timezone=UTC`;
+    console.log('Fetching day', day, city.name);
+    let air = null, weather = null;
+    try {
+      air = await tryFetchAirForDay(city, day);
+    } catch (e) {
+      console.warn('Air fetch failed for', city.name, day, e && e.message ? e.message : e);
+    }
+    try {
+      weather = await fetchWithRetry(weatherUrl, 3);
+    } catch (e) {
+      console.warn('Weather fetch failed for', city.name, day, e && e.message ? e.message : e);
+    }
+
+    if (!air || !air.hourly || !Array.isArray(air.hourly.time)) {
+      // skip to next day; we'll rely on synthetic fallback later if entire city fails
+      console.warn('No air hourly data for', city.name, day);
+      continue;
+    }
+
+    const ah = air.hourly;
+    const times = ah.time || [];
+    const pm25Arr = ah.pm2_5 || [];
+    const pm10Arr = ah.pm10 || [];
+    const no2Arr = ah.no2 || [];
+    const coArr = ah.carbon_monoxide || [];
+    const wh = weather && weather.hourly ? weather.hourly : {};
+    const tempArr = wh.temperature_2m || [];
+    const windArr = wh.windspeed_10m || [];
+    const humArr = wh.relativehumidity_2m || [];
+
     for (let i = 0; i < times.length; i++) {
       const ts = new Date(times[i]).getTime();
       const pm25 = pm25Arr[i] === undefined ? null : Number(pm25Arr[i]);
       const pm10 = pm10Arr[i] === undefined ? null : Number(pm10Arr[i]);
       const no2 = no2Arr[i] === undefined ? null : Number(no2Arr[i]);
       const co = coArr[i] === undefined ? null : Number(coArr[i]);
+      const temp = tempArr[i] === undefined ? null : Number(tempArr[i]);
+      const wind = windArr[i] === undefined ? null : Number(windArr[i]);
+      const humidity = humArr[i] === undefined ? null : Number(humArr[i]);
       const aqi = aqiFromPollutants(pm25, pm10);
-      out.push({ ts, aqi, pm25, pm10, no2, co });
+      out.push({ ts, aqi, pm25, pm10, no2, co, temp, wind, humidity });
     }
-
-    return out;
-  } catch (err) {
-    console.error('Failed to fetch for', city.name, err.message);
-    return null;
+    // polite pause to avoid rate limits
+    await new Promise(r => setTimeout(r, 200));
   }
-}
 
-(async function main() {
+  // If we collected nothing, return null so caller falls back to synthetic
+  if (out.length === 0) return null;
+
+  // Ensure output is sorted and unique by timestamp (some endpoints may overlap)
+  const mapByTs = new Map();
+  for (const row of out) mapByTs.set(row.ts, row);
+  const final = Array.from(mapByTs.keys()).sort((a,b)=>a-b).map(k => mapByTs.get(k));
+    return final;
+  }
+
+  (async function main() {
   const outDir = path.join(__dirname, '..', 'data');
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
+  const days = 7;
   for (const c of cities) {
-    const data = await fetchCityHistory(c, 7);
+    const data = await fetchCityHistory(c, days);
     let finalData = data;
     if (!finalData) {
       console.warn('No data for', c.name, '- falling back to synthetic data');
@@ -114,11 +209,13 @@ async function fetchCityHistory(city, days = 7) {
       function mulberry32(a) { return function() { var t = (a += 0x6d2b79f5) >>> 0; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
       const rand = mulberry32(seedFromString(c.slug));
       const base = Math.floor(rand() * 120) + 30;
-      finalData = Array.from({ length: (typeof days === 'number' ? days : 7) * 24 }).map((_, i) => {
-        const dd = (typeof days === 'number' ? days : 7);
-        const ts = new Date(Date.now() - (dd * 24 - i) * 3600 * 1000).getTime();
+      finalData = Array.from({ length: days * 24 }).map((_, i) => {
+        const ts = new Date(Date.now() - (days * 24 - i) * 3600 * 1000).getTime();
         const aqi = Math.max(5, Math.round(base + Math.sin(i / 24) * 20 + rand() * 15));
-        return { ts, aqi, pm25: Math.round(aqi * 0.6 + rand() * 10), pm10: Math.round(aqi * 0.5 + rand() * 12), no2: Math.round(rand() * 40), co: Math.round(rand() * 10) };
+        const temp = Math.round(15 + Math.sin(i / 24) * 8 + rand() * 4);
+        const wind = Number((rand() * 6).toFixed(2));
+        const humidity = Math.round(40 + rand() * 40);
+        return { ts, aqi, pm25: Math.round(aqi * 0.6 + rand() * 10), pm10: Math.round(aqi * 0.5 + rand() * 12), no2: Math.round(rand() * 40), co: Math.round(rand() * 10), temp, wind, humidity };
       });
     }
     const filepath = path.join(outDir, `${c.slug}.json`);
