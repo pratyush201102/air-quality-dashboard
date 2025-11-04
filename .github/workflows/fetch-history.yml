@@ -1,0 +1,36 @@
+name: Scheduled fetch-history
+
+on:
+  schedule:
+    # daily at 03:00 UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  fetch-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run fetch-history
+        env:
+          CI: true
+        run: npm run fetch-history
+
+      - name: Upload summary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fetch-history-summary
+          path: |
+            backend/cache/fetch_history_summary.json
+            backend/cache/fetch_history_errors.log
