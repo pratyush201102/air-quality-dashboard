@@ -102,12 +102,10 @@ async function fetchCityHistory(city, days = 7) {
 
   // Try a few variants when air-quality returns 400s; log detailed failures to disk for diagnosis.
   async function tryFetchAirForDay(city, day) {
-    // Try minimal pollutant set first (pm2_5 + pm10) — upstream error messages reference 'no2' as problematic.
+    // Only request PM2.5 and PM10 to avoid upstream 'no2' parsing errors. This improves success rate.
     const variants = [
       `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&start_date=${day}&end_date=${day}&hourly=pm10,pm2_5&timezone=UTC`,
       `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&start_date=${day}&end_date=${day}&hourly=pm10,pm2_5`,
-      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&start_date=${day}&end_date=${day}&hourly=pm10,pm2_5,no2,carbon_monoxide&timezone=UTC`,
-      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&start_date=${day}&end_date=${day}&hourly=pm10,pm2_5,no2,carbon_monoxide`,
     ];
     for (const url of variants) {
       try {
