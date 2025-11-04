@@ -22,8 +22,66 @@ if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 const FORECAST_CACHE_MS = Number(process.env.FORECAST_CACHE_MS || 1000 * 60 * 10);
 
 // Simple file-based cache helpers (Redis optional in future)
+// Optional Redis-backed cache/model storage. If REDIS_URL or REDIS_HOST is set
+// and a Redis client can be loaded, prefer Redis for cross-process caching.
+let redisClient = null;
+(function initRedis() {
+  try {
+    if (process.env.REDIS_URL || process.env.REDIS_HOST) {
+      try {
+        const { createClient } = require('redis');
+        const opts = process.env.REDIS_URL ? { url: process.env.REDIS_URL } : { socket: { host: process.env.REDIS_HOST, port: Number(process.env.REDIS_PORT || 6379) } };
+        redisClient = createClient(opts);
+        // connect asynchronously, log any errors
+        redisClient.connect().then(() => console.log('Redis client connected')).catch((e) => console.warn('Redis connect failed', e && e.message ? e.message : e));
+      } catch (e) {
+        console.warn('Redis package not available or failed to initialize', e && e.message ? e.message : e);
+        redisClient = null;
+      }
+    }
+  } catch (e) {
+    redisClient = null;
+  }
+})();
+
+// Simple Redis-backed advisory lock helpers (safe no-op when Redis not available)
+async function acquireLock(key, ttlMs = 10000) {
+  if (!redisClient) return null;
+  try {
+    const token = `${Date.now()}-${Math.random()}`;
+    const ok = await redisClient.set(key, token, { NX: true, PX: ttlMs });
+    return ok ? token : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function releaseLock(key, token) {
+  if (!redisClient) return;
+  try {
+    // safe-release Lua script: only delete if token matches
+    const lua = `if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end`;
+    await redisClient.eval(lua, { keys: [key], arguments: [token] });
+  } catch (e) {
+    // ignore
+  }
+}
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
 async function readForecastCache(slug) {
   try {
+    if (redisClient) {
+      try {
+        const raw = await redisClient.get(`forecast:${slug}`);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed.ts || (Date.now() - parsed.ts) > (parsed.ttl || FORECAST_CACHE_MS)) return null;
+        return parsed;
+      } catch (e) {
+        // fall back to file-based
+      }
+    }
     const p = path.join(CACHE_DIR, `forecast-${slug}.json`);
     if (!fs.existsSync(p)) return null;
     const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -36,6 +94,14 @@ async function readForecastCache(slug) {
 
 async function writeForecastCache(slug, obj, ttlMs = FORECAST_CACHE_MS) {
   try {
+    if (redisClient) {
+      try {
+        await redisClient.set(`forecast:${slug}`, JSON.stringify({ ts: Date.now(), ttl: ttlMs, data: obj }), { PX: ttlMs });
+        return;
+      } catch (e) {
+        // fall back to file
+      }
+    }
     const p = path.join(CACHE_DIR, `forecast-${slug}.json`);
     fs.writeFileSync(p, JSON.stringify({ ts: Date.now(), ttl: ttlMs, data: obj }));
   } catch (e) {
@@ -43,8 +109,16 @@ async function writeForecastCache(slug, obj, ttlMs = FORECAST_CACHE_MS) {
   }
 }
 
-function persistModel(slug, modelObj) {
+async function persistModel(slug, modelObj) {
   try {
+    if (redisClient) {
+      try {
+        await redisClient.set(`model:${slug}`, JSON.stringify({ ts: Date.now(), model: modelObj }));
+        return;
+      } catch (e) {
+        // fall back
+      }
+    }
     const p = path.join(MODELS_DIR, `${slug}.json`);
     fs.writeFileSync(p, JSON.stringify({ ts: Date.now(), model: modelObj }));
   } catch (e) {
@@ -52,8 +126,18 @@ function persistModel(slug, modelObj) {
   }
 }
 
-function loadPersistedModel(slug) {
+async function loadPersistedModel(slug) {
   try {
+    if (redisClient) {
+      try {
+        const raw = await redisClient.get(`model:${slug}`);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && parsed.model ? parsed.model : null;
+      } catch (e) {
+        // fall back
+      }
+    }
     const p = path.join(MODELS_DIR, `${slug}.json`);
     if (!fs.existsSync(p)) return null;
     const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -274,7 +358,34 @@ app.get('/api/mlpredict/:city', async (req, res) => {
       const cachedFc = await readForecastCache(slug);
       if (cachedFc && cachedFc.data) {
         console.log('mlpredict: returning cached forecast for', slug);
-        return res.json(Object.assign({}, cachedFc.data, { cached: true }));
+        // ensure Day1 matches current observed AQI before returning cached result
+        const outCached = JSON.parse(JSON.stringify(cachedFc.data));
+        // Prefer authoritative live /api/aqi value when available (ensures Day1 equality)
+        try {
+          let authoritative = null;
+          try {
+            const localResp = await axios.get(`http://localhost:${PORT}/api/aqi/${encodeURIComponent(cityParam)}`);
+            if (localResp && localResp.data && typeof localResp.data.aqi === 'number') authoritative = localResp.data.aqi;
+          } catch (e) {
+            // fall back to direct WAQI fetch
+          }
+          if (authoritative === null) {
+            try {
+              const live = await fetchAqiForCity(cityParam);
+              if (live && typeof live.aqi === 'number') authoritative = live.aqi;
+            } catch (e) {}
+          }
+          const useAqi = (typeof authoritative === 'number') ? authoritative : (currentObserved && typeof currentObserved.aqi === 'number' ? currentObserved.aqi : null);
+          if (useAqi !== null && outCached && Array.isArray(outCached.forecast) && outCached.forecast.length > 0) {
+            outCached.forecast[0].aqi = useAqi;
+            outCached.forecast[0].low = useAqi;
+            outCached.forecast[0].high = useAqi;
+            outCached.forecast[0].observed = true;
+          }
+        } catch (e) {
+          // ignore
+        }
+        return res.json(Object.assign({}, outCached, { cached: true }));
       }
     }
   } catch (e) {
@@ -299,7 +410,7 @@ app.get('/api/mlpredict/:city', async (req, res) => {
   const X = [];
   const y = [];
   // define feature order dynamically to persist with the model
-  const featureNames = ['prevAQI', 'pm25', 'pm10', 'no2', 'co'];
+  let featureNames = ['prevAQI', 'pm25', 'pm10', 'no2', 'co'];
   // include weather features if present in rows
   if (rows.some(r => typeof r.temp === 'number')) featureNames.push('temp');
   if (rows.some(r => typeof r.wind === 'number')) featureNames.push('wind');
@@ -368,14 +479,61 @@ app.get('/api/mlpredict/:city', async (req, res) => {
 
   let beta = null;
   if (X.length > 0) {
-    const Xt = transpose(X);
-    const XtX = matMul(Xt, X);
-    const inv = inverse2(XtX);
-    if (inv) {
-      const Xty = matVecMul(Xt, y);
-      beta = matVecMul(inv, Xty);
-      // persist model for this city
-      try { persistModel(slug, { beta, featureNames, useDelta, trainedAt: Date.now(), rows: rows.length }); } catch (e) { /* ignore */ }
+    // Try to reuse a persisted model when available (and not forced)
+    if (!force) {
+      try {
+        const persisted = await loadPersistedModel(slug);
+        if (persisted && persisted.beta && Array.isArray(persisted.featureNames) && persisted.beta.length === featureNames.length) {
+          beta = persisted.beta;
+          featureNames = persisted.featureNames;
+          console.log('mlpredict: loaded persisted model for', slug);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // If we still don't have beta, attempt to acquire a lock (when Redis present) and train
+    if (!beta) {
+      const lockKey = `lock:model:${slug}`;
+      let lockToken = null;
+      try {
+        if (redisClient) {
+          lockToken = await acquireLock(lockKey, 10000);
+        }
+        // if couldn't acquire lock, give a short wait and try to load a model trained by another process
+        if (!lockToken && redisClient) {
+          // wait up to 2s in small increments
+          const start = Date.now();
+          while (Date.now() - start < 2000) {
+            const persisted2 = await loadPersistedModel(slug);
+            if (persisted2 && persisted2.beta && Array.isArray(persisted2.featureNames) && persisted2.beta.length === featureNames.length) {
+              beta = persisted2.beta;
+              featureNames = persisted2.featureNames;
+              console.log('mlpredict: found model trained by another process for', slug);
+              break;
+            }
+            await sleep(200);
+          }
+        }
+
+        // If still no beta, compute locally
+        if (!beta) {
+          const Xt = transpose(X);
+          const XtX = matMul(Xt, X);
+          const inv = inverse2(XtX);
+          if (inv) {
+            const Xty = matVecMul(Xt, y);
+            beta = matVecMul(inv, Xty);
+            // persist model for this city
+            try { await persistModel(slug, { beta, featureNames, useDelta, trainedAt: Date.now(), rows: rows.length }); } catch (e) { /* ignore */ }
+          }
+        }
+      } finally {
+        if (lockToken) {
+          try { await releaseLock(lockKey, lockToken); } catch (e) { /* ignore */ }
+        }
+      }
     }
   }
 
