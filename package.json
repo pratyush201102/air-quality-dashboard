@@ -28,6 +28,7 @@
   "scripts": {
     "start": "node scripts/start.js",
     "start-backend": "node backend/server.js",
+  "fetch-history": "node backend/scripts/fetch_history.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "test:integration": "node tests/integration/mlpredict-integration.js",
