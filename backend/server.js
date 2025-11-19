@@ -783,23 +783,34 @@ app.get('/api/mlpredict/:city', async (req, res) => {
   }
   // Conservative pull-to-Day1 pass: make forecasts remain very close to Day1
   try {
-  // Apply this conservative pull for Los Angeles, Beijing, and London as requested
-  if (['los-angeles', 'beijing', 'london'].includes(slug)) {
+    // Enforce forecasts to remain within ±10% of Day1 for selected cities
+    if (['los-angeles', 'beijing', 'london'].includes(slug)) {
       const day1 = (forecast && forecast[0] && typeof forecast[0].aqi === 'number') ? forecast[0].aqi : null;
       if (day1 !== null) {
+        const minAllowed = Math.max(0, day1 * 0.9);
+        const maxAllowed = day1 * 1.1;
         for (let i = 1; i < forecast.length; i++) {
           if (typeof forecast[i].aqi !== 'number') continue;
           const orig = forecast[i].aqi;
-          // keep only 10% of the deviation from day1 and cap absolute deviation to 5 AQI
-          const deviation = orig - day1;
-          const pulled = day1 + Math.sign(deviation) * Math.min(5, Math.abs(Math.round(deviation * 0.1)));
-          forecast[i].aqi = Math.max(0, Math.round(pulled));
-          // recalc low/high around the new aqi with a small spread
-          const spread = Math.max(1, Math.round(((forecast[i].high || orig) - (forecast[i].low || orig)) / 2));
-          forecast[i].low = Math.max(0, forecast[i].aqi - spread);
-          forecast[i].high = forecast[i].aqi + spread;
+          // clamp into the ±10% window around day1
+          let clamped = Math.min(maxAllowed, Math.max(minAllowed, orig));
+          clamped = Math.round(clamped);
+          // enforce non-zero safety: if day1 > 0 but clamp produced 0 (or extremely small),
+          // ensure the forecast step is at least 10% of day1 (rounded, min 1)
+          let newAqi = Math.max(0, clamped);
+          if (day1 > 0 && newAqi === 0) {
+            const minFloor = Math.max(1, Math.round(day1 * 0.1));
+            newAqi = minFloor;
+          }
+          forecast[i].aqi = newAqi;
+          // recalc low/high around the new aqi while preserving original spread magnitude
+          const origLow = typeof forecast[i].low === 'number' ? forecast[i].low : Math.max(0, orig - 5);
+          const origHigh = typeof forecast[i].high === 'number' ? forecast[i].high : orig + 5;
+          const span = Math.max(1, Math.round((origHigh - origLow) / 2));
+          forecast[i].low = Math.max(0, forecast[i].aqi - span);
+          forecast[i].high = forecast[i].aqi + span;
         }
-        console.log('mlpredict: applied conservative pull-to-day1 for', cityParam);
+        console.log('mlpredict: enforced ±10% Day1 window for', cityParam, 'day1=', day1);
       }
     }
   } catch (e) {
