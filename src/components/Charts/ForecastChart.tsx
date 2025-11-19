@@ -43,6 +43,14 @@ export default function ForecastChart({ selectedCities = [] as string[], allCiti
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [metricsMap, setMetricsMap] = useState<Record<string, { rmse?: number; mape?: number }>>({});
+  const [jitterEnabled, setJitterEnabled] = useState<boolean>(() => {
+    try {
+      const v = window.localStorage.getItem('forecast:jitter');
+      if (v === '0') return false;
+      if (v === '1') return true;
+    } catch (e) {}
+    return true;
+  });
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -177,7 +185,7 @@ export default function ForecastChart({ selectedCities = [] as string[], allCiti
       const found = arr.find((p) => p.day === day);
       const observed = found ? !!(found as any).observed : false;
   const rawAqi = found && typeof found.aqi === 'number' ? found.aqi : null;
-  const jitter = deterministicJitter(slug, dayNum);
+  const jitter = jitterEnabled ? deterministicJitter(slug, dayNum) : 0;
   const displayedAqi = rawAqi !== null ? rawAqi + jitter : null;
 
   row[slug] = displayedAqi;
@@ -210,7 +218,11 @@ export default function ForecastChart({ selectedCities = [] as string[], allCiti
   <div style={{width: '100%', height: 360, paddingBottom: 20, paddingTop: 28, paddingRight: 160 }} className="bg-white rounded-2xl p-4 shadow mt-6">
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16}}>
         <h3 className="text-lg font-semibold mb-1" style={{ marginTop: 8 }}>Predictive AQI Forecast</h3>
-        <div style={{fontSize: 12, color: '#4b5563', display: 'flex', alignItems: 'center'}}>
+        <div style={{fontSize: 12, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 12}}>
+          <label style={{display: 'flex', alignItems: 'center', gap: 8}}>
+            <input type="checkbox" checked={jitterEnabled} onChange={(e) => { setJitterEnabled(e.target.checked); try { window.localStorage.setItem('forecast:jitter', e.target.checked ? '1' : '0'); } catch (e) {} }} />
+            <span style={{fontSize: 12}}>Enable jitter (visual separation)</span>
+          </label>
           {Object.keys(metricsMap).length === 0 && loading && <span>Loading metrics...</span>}
           {Object.keys(metricsMap).length === 0 && !loading && <span style={{fontStyle: 'italic'}}>Metrics unavailable (insufficient data)</span>}
           {Object.keys(metricsMap).length > 0 && (

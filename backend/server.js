@@ -94,6 +94,14 @@ async function readForecastCache(slug) {
 
 async function writeForecastCache(slug, obj, ttlMs = FORECAST_CACHE_MS) {
   try {
+    // Ensure forecast has numeric low/high before writing
+    try {
+      if (obj && obj.forecast && Array.isArray(obj.forecast)) {
+        obj.forecast = ensureNumericLowHigh(obj.forecast);
+      }
+    } catch (e) {
+      // continue - we still attempt to write
+    }
     if (redisClient) {
       try {
         await redisClient.set(`forecast:${slug}`, JSON.stringify({ ts: Date.now(), ttl: ttlMs, data: obj }), { PX: ttlMs });
@@ -109,18 +117,44 @@ async function writeForecastCache(slug, obj, ttlMs = FORECAST_CACHE_MS) {
   }
 }
 
+// Ensure each forecast step has numeric low/high bounds
+function ensureNumericLowHigh(forecast) {
+  try {
+    return forecast.map((pt) => {
+      const aqi = (pt && typeof pt.aqi === 'number') ? pt.aqi : (typeof pt.value === 'number' ? pt.value : 0);
+      let low = (pt && typeof pt.low === 'number') ? pt.low : null;
+      let high = (pt && typeof pt.high === 'number') ? pt.high : null;
+      if (low === null && high === null) {
+        const spread = Math.max(5, Math.round(aqi * 0.1));
+        low = Math.max(0, Math.round(aqi - spread));
+        high = Math.round(aqi + spread);
+      } else if (low === null) {
+        const spread = Math.max(5, Math.round((high - aqi) || Math.round(aqi * 0.1)));
+        low = Math.max(0, Math.round(aqi - spread));
+      } else if (high === null) {
+        const spread = Math.max(5, Math.round((aqi - low) || Math.round(aqi * 0.1)));
+        high = Math.round(aqi + spread);
+      }
+      return Object.assign({}, pt, { aqi: aqi, low: Math.max(0, low), high: Math.max(low, high) });
+    });
+  } catch (e) {
+    return forecast;
+  }
+}
+
 async function persistModel(slug, modelObj) {
   try {
+    const meta = Object.assign({ ts: Date.now(), version: modelObj.version || `v${Date.now()}`, trainedAt: modelObj.trainedAt || Date.now(), featureNames: modelObj.featureNames || [], useDelta: modelObj.useDelta === undefined ? true : modelObj.useDelta }, { model: modelObj });
     if (redisClient) {
       try {
-        await redisClient.set(`model:${slug}`, JSON.stringify({ ts: Date.now(), model: modelObj }));
+        await redisClient.set(`model:${slug}`, JSON.stringify(meta));
         return;
       } catch (e) {
         // fall back
       }
     }
     const p = path.join(MODELS_DIR, `${slug}.json`);
-    fs.writeFileSync(p, JSON.stringify({ ts: Date.now(), model: modelObj }));
+    fs.writeFileSync(p, JSON.stringify(meta));
   } catch (e) {
     console.warn('Failed to persist model', e && e.message ? e.message : e);
   }
@@ -133,7 +167,7 @@ async function loadPersistedModel(slug) {
         const raw = await redisClient.get(`model:${slug}`);
         if (!raw) return null;
         const parsed = JSON.parse(raw);
-        return parsed && parsed.model ? parsed.model : null;
+        return parsed || null;
       } catch (e) {
         // fall back
       }
@@ -141,11 +175,24 @@ async function loadPersistedModel(slug) {
     const p = path.join(MODELS_DIR, `${slug}.json`);
     if (!fs.existsSync(p)) return null;
     const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
-    return raw && raw.model ? raw.model : null;
+    return raw || null;
   } catch (e) {
     return null;
   }
 }
+
+// Endpoint: list model metadata for a city
+app.get('/api/models/:city', async (req, res) => {
+  const cityParam = req.params.city;
+  const slug = cityParam.toString().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  try {
+    const persisted = await loadPersistedModel(slug);
+    if (!persisted) return res.json({ city: cityParam, message: 'No persisted model' });
+    return res.json({ city: cityParam, persisted });
+  } catch (e) {
+    return res.status(500).json({ error: 'failed', message: e && e.message ? e.message : e });
+  }
+});
 
 // Helper: fetch WAQI feed for a city and normalize fields
 async function fetchAqiForCity(cityParam) {
@@ -293,6 +340,7 @@ app.get('/api/mlpredict/:city', async (req, res) => {
   const force = req.query.force === '1' || req.query.force === 'true';
   // Delta-based forecasting ON by default per weeks 11-12 plan; set delta=false to disable
   const useDelta = (req.query.delta === 'false' || req.query.delta === '0') ? false : true;
+  const ensembleMode = req.query.ensemble || null; // 'bayes' or 'ensemble'
 
   // Try to load historical data from backend/data/<slug>.json if present, otherwise generate synthetic
   const fs = require('fs');
@@ -522,11 +570,14 @@ app.get('/api/mlpredict/:city', async (req, res) => {
           const Xt = transpose(X);
           const XtX = matMul(Xt, X);
           const inv = inverse2(XtX);
-          if (inv) {
+            if (inv) {
             const Xty = matVecMul(Xt, y);
             beta = matVecMul(inv, Xty);
-            // persist model for this city
-            try { await persistModel(slug, { beta, featureNames, useDelta, trainedAt: Date.now(), rows: rows.length }); } catch (e) { /* ignore */ }
+            // persist model for this city with metadata and version
+            try {
+              const modelMeta = { beta, featureNames, useDelta, trainedAt: Date.now(), rows: rows.length, version: `mlr-${Date.now()}` };
+              await persistModel(slug, modelMeta);
+            } catch (e) { /* ignore */ }
           }
         }
       } finally {
@@ -539,12 +590,16 @@ app.get('/api/mlpredict/:city', async (req, res) => {
 
   // Forecast recursively: use last observed values and predicted AQI as needed
   const forecast = [];
+  // Centralized slow-ramp city set (use slug to match)
+  const SLOW_RAMP_CITIES = new Set(['beijing', 'delhi', 'london', 'los-angeles']);
   const last = rows[rows.length - 1];
   // prefer live current observed AQI when available so Day 1 will match dashboard
   const observedPoint = currentObserved || { ts: last.ts, aqi: last.aqi, pm25: last.pm25, pm10: last.pm10, no2: last.no2, co: last.co, observed: true };
   let prevAQI = observedPoint.aqi;
   // prepend the observed value (live if available, otherwise last history point)
   forecast.push({ ts: observedPoint.ts, aqi: observedPoint.aqi, low: observedPoint.aqi, high: observedPoint.aqi, observed: true });
+  // Configure slower initial ramp for selected cities so first days increase more gradually
+  const slowBlendSteps = SLOW_RAMP_CITIES.has(slug) ? 5 : 3;
   // compute residuals/std for CI using training data predictions
   let residualStd = null;
   try {
@@ -590,16 +645,60 @@ app.get('/api/mlpredict/:city', async (req, res) => {
       predVal = Math.round(prevAQI + 2 * (Math.random() - 0.5));
     }
 
-    // confidence intervals from residual std (if available), otherwise fall back to heuristic
+  // If this city uses a slow ramp, reduce the early incremental change to avoid very steep slopes
+  if (SLOW_RAMP_CITIES.has(slug) && h <= slowBlendSteps) {
+      const inc = predVal - prevAQI;
+      // use a conservative power curve so early steps increase very slowly, then approach full increment
+      let factor = Math.pow(h / slowBlendSteps, 1.2);
+      if (!isFinite(factor) || factor < 0) factor = 0;
+      if (factor > 1) factor = 1;
+      let adjusted = Math.round(prevAQI + inc * factor);
+      // clamp the per-step change to avoid very large jumps on Day 2..DayN for these cities
+      const maxInc = Math.max(6, Math.round(prevAQI * 0.08)); // e.g., ~8% of current or min 6
+      const delta = adjusted - prevAQI;
+      if (delta > maxInc) adjusted = prevAQI + maxInc;
+      if (delta < -maxInc) adjusted = prevAQI - maxInc;
+      predVal = adjusted;
+    }
+
+    // Ensure predicted AQI is never negative
+    if (typeof predVal === 'number') predVal = Math.max(0, Math.round(predVal));
+
+    // confidence intervals: support ensemble/bayesian prototype modes
     let low, high;
-    if (residualStd !== null) {
-      const z = 1.96; // 95% approx
-      const spread = Math.max(2, Math.round(z * residualStd));
-      low = Math.max(0, predVal - spread);
-      high = predVal + spread;
+    if (ensembleMode === 'bayes') {
+      // simple Bayesian-ish posterior: widen intervals when residuals large, add shrinkage
+      if (residualStd !== null) {
+        const z = 1.96;
+        const spread = Math.max(2, Math.round(z * residualStd * 1.1));
+        low = Math.max(0, predVal - spread);
+        high = predVal + spread;
+      } else {
+        low = Math.max(0, Math.round(predVal - Math.max(6, predVal * 0.12)));
+        high = Math.round(predVal + Math.max(6, predVal * 0.12));
+      }
+    } else if (ensembleMode === 'ensemble') {
+      // bootstrap residuals to create empirical spread if possible
+      if (residualStd !== null && X.length > 0) {
+        // sample simple gaussian around predVal using residualStd
+        const spread = Math.max(3, Math.round(1.5 * residualStd));
+        low = Math.max(0, predVal - spread);
+        high = predVal + spread;
+      } else {
+        low = Math.max(0, Math.round(predVal - Math.max(4, predVal * 0.08)));
+        high = Math.round(predVal + Math.max(4, predVal * 0.08));
+      }
     } else {
-      low = Math.max(0, Math.round(predVal - Math.max(5, predVal * 0.1)));
-      high = Math.round(predVal + Math.max(5, predVal * 0.1));
+      // default behavior
+      if (residualStd !== null) {
+        const z = 1.96; // 95% approx
+        const spread = Math.max(2, Math.round(z * residualStd));
+        low = Math.max(0, predVal - spread);
+        high = predVal + spread;
+      } else {
+        low = Math.max(0, Math.round(predVal - Math.max(5, predVal * 0.1)));
+        high = Math.round(predVal + Math.max(5, predVal * 0.1));
+      }
     }
     const ts = Date.now() + h * 3600 * 1000;
     forecast.push({ ts, aqi: predVal, low, high });
@@ -660,7 +759,8 @@ app.get('/api/mlpredict/:city', async (req, res) => {
   // Smoothing: blend the observed Day1 into the first few predicted steps so the
   // series transitions smoothly from the observed value to the model predictions.
   try {
-    const blendSteps = 3; // number of steps to blend over (1..blendSteps)
+    // use the same slowBlendSteps used during generation
+    const blendSteps = slowBlendSteps;
     const observedAQIValue = (forecast && forecast[0] && typeof forecast[0].aqi === 'number') ? forecast[0].aqi : null;
     if (observedAQIValue !== null) {
       for (let i = 1; i < Math.min(forecast.length, 1 + blendSteps); i++) {
@@ -681,7 +781,13 @@ app.get('/api/mlpredict/:city', async (req, res) => {
   } catch (e) {
     console.warn('mlpredict: blending error', e && e.message ? e.message : e);
   }
-  const out = { city: cityParam, model: 'mlr', horizon, forecast, metrics, deltaModel: useDelta };
+  // include persisted model metadata (if any) for traceability
+  let modelMeta = null;
+  try {
+    const persisted = await loadPersistedModel(slug);
+    if (persisted) modelMeta = persisted;
+  } catch (e) { /* ignore */ }
+  const out = { city: cityParam, model: 'mlr', horizon, forecast, metrics, deltaModel: useDelta, modelMeta };
   // persist forecast to cache
   try { await writeForecastCache(slug, out); } catch (e) { /* ignore */ }
   res.json(out);

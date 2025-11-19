@@ -1,0 +1,27 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Run jitter unit test
+        run: npm run test:jitter
+      - name: Validate forecast cache (if any)
+        run: npm run cache-validate || true
+      - name: Chart toggle smoke test
+        run: npm run test:chart-toggle
