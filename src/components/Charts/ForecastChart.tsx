@@ -229,21 +229,7 @@ export default function ForecastChart({ selectedCities = [] as string[], allCiti
             <input type="checkbox" checked={jitterEnabled} onChange={(e) => { setJitterEnabled(e.target.checked); try { window.localStorage.setItem('forecast:jitter', e.target.checked ? '1' : '0'); } catch (e) {} }} />
             <span style={{fontSize: 12}}>Enable jitter (visual separation)</span>
           </label>
-          {Object.keys(metricsMap).length === 0 && loading && <span>Loading metrics...</span>}
-          {Object.keys(metricsMap).length === 0 && !loading && <span style={{fontStyle: 'italic'}}>Metrics unavailable (insufficient data)</span>}
-          {Object.keys(metricsMap).length > 0 && (
-            <div style={{display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start'}}>
-              {Object.entries(metricsMap).map(([slug, m]) => (
-                <div key={slug} style={{background: '#f3f4f6', padding: '6px 10px', borderRadius: 8, minWidth: 120, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.02)'}} title={labelMap[slug] || slug}>
-                  <div style={{display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 4}}>{labelMap[slug] || slug}</div>
-                  <div style={{display: 'flex', gap: 8, alignItems: 'center'}}>
-                    <span style={{fontSize: 12, color: '#111'}}>RMSE: <strong>{m.rmse !== undefined && m.rmse !== null ? m.rmse.toFixed(2) : 'Insufficient'}</strong></span>
-                    <span style={{fontSize: 12, color: '#111'}}>MAPE: <strong>{m.mape !== undefined && m.mape !== null ? `${m.mape.toFixed(2)}%` : 'Insufficient'}</strong></span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* metrics (RMSE/MAPE) intentionally hidden in UI per request */}
         </div>
       </div>
       {loading && <p className="text-sm text-gray-500">Loading forecasts...</p>}
