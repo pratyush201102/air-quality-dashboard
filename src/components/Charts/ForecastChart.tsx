@@ -187,8 +187,10 @@ export default function ForecastChart({ selectedCities = [] as string[], allCiti
   const rawAqi = found && typeof found.aqi === 'number' ? found.aqi : null;
   const jitter = jitterEnabled ? deterministicJitter(slug, dayNum) : 0;
   const displayedAqi = rawAqi !== null ? rawAqi + jitter : null;
+  // clamp displayed values to prevent negative AQI caused by jitter or bad data
+  const displayedAqiClamped = displayedAqi !== null ? Math.max(0, Number(displayedAqi.toFixed(2))) : null;
 
-  row[slug] = displayedAqi;
+  row[slug] = displayedAqiClamped;
       row[`${slug}_observed`] = observed;
 
       // adjust low/high and band by same jitter when present so the band follows the line
@@ -197,14 +199,18 @@ export default function ForecastChart({ selectedCities = [] as string[], allCiti
       if (rawLow !== null && rawHigh !== null) {
         const la = rawLow + jitter;
         const ha = rawHigh + jitter;
-        row[`${slug}_low`] = la;
-        row[`${slug}_band`] = Math.max(0, ha - la);
-        row[`${slug}_low_abs`] = la;
+        // clamp baseline and ensure high >= low
+        const laClamped = Math.max(0, Number(la.toFixed(2)));
+        const haClamped = Math.max(laClamped, Number(ha.toFixed(2)));
+        row[`${slug}_low`] = laClamped;
+        row[`${slug}_band`] = Math.max(0, haClamped - laClamped);
+        row[`${slug}_low_abs`] = laClamped;
       } else if (rawLow !== null) {
         const la = rawLow + jitter;
-        row[`${slug}_low`] = la;
+        const laClamped = Math.max(0, Number(la.toFixed(2)));
+        row[`${slug}_low`] = laClamped;
         row[`${slug}_band`] = 0;
-        row[`${slug}_low_abs`] = la;
+        row[`${slug}_low_abs`] = laClamped;
       } else {
         row[`${slug}_low`] = 0;
         row[`${slug}_band`] = 0;

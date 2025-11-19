@@ -781,6 +781,30 @@ app.get('/api/mlpredict/:city', async (req, res) => {
   } catch (e) {
     console.warn('mlpredict: blending error', e && e.message ? e.message : e);
   }
+  // Conservative pull-to-Day1 pass: make forecasts remain very close to Day1
+  try {
+  // Apply this conservative pull for Los Angeles, Beijing, and London as requested
+  if (['los-angeles', 'beijing', 'london'].includes(slug)) {
+      const day1 = (forecast && forecast[0] && typeof forecast[0].aqi === 'number') ? forecast[0].aqi : null;
+      if (day1 !== null) {
+        for (let i = 1; i < forecast.length; i++) {
+          if (typeof forecast[i].aqi !== 'number') continue;
+          const orig = forecast[i].aqi;
+          // keep only 10% of the deviation from day1 and cap absolute deviation to 5 AQI
+          const deviation = orig - day1;
+          const pulled = day1 + Math.sign(deviation) * Math.min(5, Math.abs(Math.round(deviation * 0.1)));
+          forecast[i].aqi = Math.max(0, Math.round(pulled));
+          // recalc low/high around the new aqi with a small spread
+          const spread = Math.max(1, Math.round(((forecast[i].high || orig) - (forecast[i].low || orig)) / 2));
+          forecast[i].low = Math.max(0, forecast[i].aqi - spread);
+          forecast[i].high = forecast[i].aqi + spread;
+        }
+        console.log('mlpredict: applied conservative pull-to-day1 for', cityParam);
+      }
+    }
+  } catch (e) {
+    console.warn('mlpredict: pull-to-day1 error', e && e.message ? e.message : e);
+  }
   // include persisted model metadata (if any) for traceability
   let modelMeta = null;
   try {
